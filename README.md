@@ -29,7 +29,7 @@ Values under led_count * 1250 + 50 ns won't work.
 led_strip->run(40);
 ``` 
 
-If you have multiple led strips you shoudl specify the RMT channel.
+If you have multiple led strips you should specify the RMT channel.
 
 ```cpp 
 auto led_strip_1 = LedStrip::create(gpio, led_count, 0);
