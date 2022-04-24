@@ -1,7 +1,7 @@
 if(${IDF_TARGET} STREQUAL esp8266)
-    set(req esp8266 freertos)
+    set(req esp8266 freertos pthread)
 else()
-    set(req driver freertos)
+    set(req driver freertos pthread)
 endif()
 
 idf_component_register(

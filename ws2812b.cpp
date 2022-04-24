@@ -3,11 +3,13 @@
 #include <driver/gpio.h>
 #include <driver/rmt.h>
 #include <esp_err.h>
+#include <esp_pthread.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <atomic>
 #include <chrono>
 #include <functional>
-#include <iostream>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -85,7 +87,14 @@ LedStrip::~LedStrip() {
 }
 
 void LedStrip::run(uint32_t auto_flush_ms) {
+    auto config = esp_pthread_get_default_config();
+    config.thread_name = "Led strip";
+    config.stack_size = 1280;
+    config.pin_to_core = 1;
+    ESP_ERROR_CHECK(esp_pthread_set_cfg(&config));
     std::thread{std::mem_fn(&LedStripPrivate::auto_flush), d_ptr_.get(), std::chrono::milliseconds(auto_flush_ms)}.detach();
+    config = esp_pthread_get_default_config();
+    ESP_ERROR_CHECK(esp_pthread_set_cfg(&config));
 }
 
 LedStripPrivate::LedStripPrivate(gpio_num_t gpio, uint16_t led_count, rmt_channel_t channel) : led_count_(led_count), rmt_channel_(channel), gpio_(gpio) {
@@ -96,7 +105,6 @@ LedStripPrivate::LedStripPrivate(gpio_num_t gpio, uint16_t led_count, rmt_channe
         .clk_div = uint8_t(clk_div),
         .mem_block_num = 1,
         .tx_config = {
-            // wtf
             .carrier_freq_hz = 38000,
             .carrier_level = RMT_CARRIER_LEVEL_LOW,
             .idle_level = RMT_IDLE_LEVEL_LOW,
@@ -105,13 +113,22 @@ LedStripPrivate::LedStripPrivate(gpio_num_t gpio, uint16_t led_count, rmt_channe
             .loop_en = false,
             .idle_output_en = true,
         }};
-    ESP_ERROR_CHECK(rmt_config(&conf));
-    ESP_ERROR_CHECK(rmt_driver_install(conf.channel, 0, 0));
+    auto config = esp_pthread_get_default_config();
+    config.pin_to_core = 1;
+    ESP_ERROR_CHECK(esp_pthread_set_cfg(&config));
+    auto init = std::thread{[this, conf]() {
+        ESP_ERROR_CHECK(rmt_config(&conf));
+        ESP_ERROR_CHECK(rmt_driver_install(conf.channel, 0, 0));
 
-    item_buffer_.resize(led_count_ * color_bits);
+        item_buffer_.resize(led_count_ * color_bits);
 
-    front_buffer_.resize(led_count_);
-    back_buffer_.resize(led_count_);
+        front_buffer_.resize(led_count_);
+        back_buffer_.resize(led_count_);
+    }};
+    config = esp_pthread_get_default_config();
+    ESP_ERROR_CHECK(esp_pthread_set_cfg(&config));
+    init.join();
+
 }
 
 void byte_to_items(uint8_t byte, rmt_item32_t *items) {
