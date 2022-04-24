@@ -13,6 +13,8 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <iostream>
+#include <cmath>
 
 namespace ws2812b {
 using std::this_thread::sleep_for;
@@ -221,6 +223,56 @@ LedStrip::LedColor LedStrip::Led::operator=(LedStrip::LedColor color) {
 
 uint16_t LedStrip::Led::index() const {
     return index_;
+}
+
+LedColor LedColor::from_hsv(float H, float S, float V) {
+    LedColor color{.red = 0, .green = 0, .blue = 0};
+    if (H > 360.0f || H < 0.0f || S > 100.0f || S < 0.0f || V > 100.0f || V < 0.0f) {
+        std::cerr << "HSV not in range" << std::endl;
+        return color;
+    }
+    const float s = S / 100.0f;
+    const float v = V / 100.0f;
+    const float C = s * v;
+    const float X = C * (1.0f - std::abs(std::fmod(H / 60.0f, 2) - 1));
+    const float m = v - C;
+    float r, g, b;
+    if (H >= 0.0f && H < 60.0f) {
+        r = C;
+        g = X;
+        b = 0;
+    } else if (H >= 60.0f && H < 120.0f) {
+        r = X;
+        g = C;
+        b = 0;
+    } else if (H >= 120.0f && H < 180.0f) {
+        r = 0;
+        g = C;
+        b = X;
+    } else if (H >= 180.0f && H < 240.0f) {
+        r = 0;
+        g = X;
+        b = C;
+    } else if (H >= 240.0f && H < 300.0f) {
+        r = X;
+        g = 0;
+        b = C;
+    } else {
+        r = C;
+        g = 0;
+        b = X;
+    }
+
+    color.red = uint8_t((r + m) * 255.0f);
+    color.green = uint8_t((g + m) * 255.0f);
+    color.blue = uint8_t((b + m) * 255.0f);
+
+    return color;
+}
+
+std::ostream &operator<<(std::ostream &os, LedColor color) {
+    auto [r, g, b] = color;
+    return os << "Color{ .red = " << int(r) << ", .green = " << int(g) << ", .blue = " << int(b) << " }";
 }
 
 }  // namespace ws2812b

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <iosfwd>
 
 namespace ws2812b {
 class LedStripPrivate;
@@ -16,6 +17,8 @@ class LedStrip : public std::enable_shared_from_this<LedStrip> {
         uint8_t red = 0;
         uint8_t green = 0;
         uint8_t blue = 0;
+
+        static LedColor from_hsv(float h, float s, float v);
     };
 
     void run(uint32_t auto_flush_ms);
@@ -55,4 +58,6 @@ static LedColor constexpr operator"" _rgb(unsigned long long val) {
         .blue = uint8_t(val & mask),
     };
 }
+
+std::ostream &operator<<(std::ostream &os, LedColor color);
 }  // namespace ws2812b
